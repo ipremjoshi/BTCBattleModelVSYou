@@ -8,62 +8,81 @@
   <style>
     .pulse { animation: pulse 1s infinite; }
     @keyframes pulse { 50% { transform: scale(1.05); } }
+
+    /* Confetti */
+    .confetti {
+      position: fixed;
+      top: -10px;
+      width: 10px;
+      height: 10px;
+      animation: fall 3s linear forwards;
+      z-index: 50;
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(110vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    /* Lose shake */
+    .shake { animation: shake 0.6s; }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      50% { transform: translateX(8px); }
+      75% { transform: translateX(-8px); }
+      100% { transform: translateX(0); }
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-white min-h-screen flex items-center justify-center">
+<body id="pageBody" class="bg-slate-950 text-white min-h-screen flex items-center justify-center">
 
-  <div class="max-w-md w-full p-6 text-center space-y-6">
+<div id="gameContainer" class="max-w-md w-full p-6 text-center space-y-6">
 
-    <!-- Title -->
-    <h1 class="text-3xl font-bold">🟠 BTC Battle</h1>
-    <p class="text-slate-400">Will Bitcoin go up or down in the next 30 seconds?</p>
+  <h1 class="text-3xl font-bold">🟠 BTC Battle</h1>
+  <p class="text-slate-400">Will Bitcoin go up or down in the next 30 seconds?</p>
 
-    <!-- Last Close -->
-    <div class="bg-slate-900 rounded-2xl p-4">
-      <p class="text-slate-400 text-sm">Last minute closing price</p>
-      <p id="lastClose" class="text-4xl font-bold">$—</p>
-      <p id="errorMsg" class="text-sm text-amber-400 mt-2 hidden">🚨 Oops! Something went wrong! 🏃‍♂️💨 Omw to fix it</p>
-    </div>
-
-    <!-- Timer -->
-    <div>
-      <p class="text-slate-400">Result in</p>
-      <p id="timer" class="text-3xl font-bold pulse">30s</p>
-    </div>
-
-    <!-- Question -->
-    <div class="bg-slate-900 rounded-2xl p-4 space-y-4">
-      <p class="text-slate-300 text-lg">📊 Will BTC go up or down?</p>
-      <div class="flex gap-4">
-        <button id="upBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl py-3 text-xl">⬆ UP</button>
-        <button id="downBtn" class="flex-1 bg-rose-600 hover:bg-rose-700 rounded-xl py-3 text-xl">⬇ DOWN</button>
-      </div>
-      <p id="lockedText" class="text-sm text-emerald-400 hidden">Choice locked! Let’s see 👀</p>
-    </div>
-
-    <!-- Result -->
-    <div id="resultBox" class="bg-slate-900 rounded-2xl p-4 hidden space-y-2">
-      <p id="priceMove"></p>
-      <p id="userResult"></p>
-      <p id="aiResult"></p>
-      <p id="winner" class="text-xl font-bold"></p>
-    </div>
-
-    <!-- Score -->
-    <div class="flex justify-around text-lg">
-      <p>🔥 You: <span id="userScore">0</span></p>
-      <p>🤖 AI: <span id="aiScore">0</span></p>
-    </div>
-
-    <!-- History -->
-    <div class="bg-slate-900 rounded-2xl p-4 text-left space-y-2">
-      <p class="text-slate-300 font-semibold">🕒 Round history</p>
-      <ul id="history" class="text-sm space-y-1 max-h-40 overflow-y-auto"></ul>
-    </div>
-
-    <p class="text-xs text-slate-500">Just a fun game. Not financial advice.</p>
-
+  <div class="bg-slate-900 rounded-2xl p-4">
+    <p class="text-slate-400 text-sm">Bitcoin Price (Last minute closing)</p>
+    <p id="lastClose" class="text-4xl font-bold">$—</p>
+    <p id="errorMsg" class="text-sm text-amber-400 mt-2 hidden">🚨 Oops! Something went wrong! 🏃‍♂️💨 Omw to fix it</p>
   </div>
+
+  <div>
+    <p class="text-slate-400">Result in</p>
+    <p id="timer" class="text-3xl font-bold pulse">30s</p>
+  </div>
+
+  <div class="bg-slate-900 rounded-2xl p-4 space-y-4">
+    <p class="text-slate-300 text-lg">📊 Will BTC go up or down?</p>
+    <div class="flex gap-4">
+      <button id="upBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl py-3 text-xl">⬆ UP</button>
+      <button id="downBtn" class="flex-1 bg-rose-600 hover:bg-rose-700 rounded-xl py-3 text-xl">⬇ DOWN</button>
+    </div>
+    <p id="lockedText" class="text-sm text-emerald-400 hidden">Choice locked! Let’s see 👀</p>
+  </div>
+
+  <div id="resultBox" class="bg-slate-900 rounded-2xl p-4 hidden space-y-2">
+    <p id="priceMove"></p>
+    <p id="userResult"></p>
+    <p id="aiResult"></p>
+    <p id="winner" class="text-xl font-bold"></p>
+  </div>
+
+  <div class="flex justify-around text-lg">
+    <p>🔥 You: <span id="userScore">0</span></p>
+    <p>🤖 AI: <span id="aiScore">0</span></p>
+  </div>
+
+  <div class="bg-slate-900 rounded-2xl p-4 text-left space-y-2">
+    <p class="text-slate-300 font-semibold">🕒 Round history</p>
+    <ul id="history" class="text-sm space-y-1 max-h-40 overflow-y-auto"></ul>
+  </div>
+
+  <p class="text-xs text-slate-500">Just a fun game. Not financial advice.</p>
+
+</div>
 
 <script>
   const lastCloseEl = document.getElementById('lastClose');
@@ -80,6 +99,7 @@
   const aiScoreEl = document.getElementById('aiScore');
   const historyEl = document.getElementById('history');
   const errorMsgEl = document.getElementById('errorMsg');
+  const gameContainer = document.getElementById('gameContainer');
 
   let lastClose = null;
   let lastCloseReady = false;
@@ -91,48 +111,31 @@
   let aiScore = 0;
   let roundCount = 0;
 
-  // Live trades for current price
   const tradeWS = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
-  tradeWS.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    livePrice = parseFloat(data.p);
-  };
+  tradeWS.onmessage = e => { livePrice = parseFloat(JSON.parse(e.data).p); };
 
-  // Kline stream for future minute closes
   const klineWS = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
-  klineWS.onmessage = (e) => {
+  klineWS.onmessage = e => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.k && msg.k.x) {
-        const close = parseFloat(msg.k.c);
-        if (!isNaN(close)) {
-          lastClose = close;
-          lastCloseReady = true;
-          lastCloseEl.textContent = `$${lastClose.toFixed(2)}`;
-          errorMsgEl.classList.add('hidden');
-        }
+        lastClose = parseFloat(msg.k.c);
+        lastCloseReady = true;
+        lastCloseEl.textContent = `$${lastClose.toFixed(2)}`;
+        errorMsgEl.classList.add('hidden');
       }
-    } catch {
-      showApiError();
-    }
+    } catch { showApiError(); }
   };
+  klineWS.onerror = showApiError;
 
-  klineWS.onerror = () => showApiError();
-
-  // Initial REST fetch so first load has data
   fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1')
-    .then(res => res.json())
-    .then(data => {
-      if (Array.isArray(data) && data.length > 0) {
-        const close = parseFloat(data[0][4]);
-        if (!isNaN(close)) {
-          lastClose = close;
-          lastCloseReady = true;
-          lastCloseEl.textContent = `$${lastClose.toFixed(2)}`;
-        }
-      }
+    .then(r => r.json())
+    .then(d => {
+      lastClose = parseFloat(d[0][4]);
+      lastCloseReady = true;
+      lastCloseEl.textContent = `$${lastClose.toFixed(2)}`;
     })
-    .catch(() => showApiError());
+    .catch(showApiError);
 
   function showApiError() {
     lastCloseEl.textContent = '— — — —';
@@ -142,11 +145,10 @@
   upBtn.onclick = () => lockChoice('up');
   downBtn.onclick = () => lockChoice('down');
 
-  function lockChoice(choice) {
-    userChoice = choice;
+  function lockChoice(c) {
+    userChoice = c;
     lockedText.classList.remove('hidden');
-    upBtn.disabled = true;
-    downBtn.disabled = true;
+    upBtn.disabled = downBtn.disabled = true;
     upBtn.classList.add('opacity-50');
     downBtn.classList.add('opacity-50');
   }
@@ -155,41 +157,65 @@
     return Math.random() > 0.5 ? 'up' : 'down';
   }
 
+  function launchConfetti() {
+    for (let i = 0; i < 120; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.backgroundColor = `hsl(${Math.random()*360},100%,50%)`;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4000);
+    }
+  }
+
+  function loseAnimation() {
+    gameContainer.classList.add('shake');
+    setTimeout(() => gameContainer.classList.remove('shake'), 600);
+  }
+
+  function flashBackground(cls) {
+    const body = document.getElementById('pageBody');
+    body.classList.replace('bg-slate-950', cls);
+    setTimeout(() => body.classList.replace(cls, 'bg-slate-950'), 2000);
+  }
+
   function evaluateRound() {
-    if (!lastCloseReady || livePrice == null) return;
+    if (!lastCloseReady || livePrice === null) return;
 
     aiChoice = aiPredictDirection();
     const actualMove = livePrice >= lastClose ? 'up' : 'down';
     const diff = livePrice - lastClose;
-    const arrow = actualMove === 'up' ? '⬆' : '⬇';
 
-    priceMoveEl.textContent = `🟢 Price went ${actualMove.toUpperCase()} ${arrow} (${diff >= 0 ? '+' : ''}${diff.toFixed(2)})`;
-    userResultEl.textContent = `YOU chose ${userChoice ? userChoice.toUpperCase() : 'NOTHING'}`;
+    priceMoveEl.textContent = `🟢 Price went ${actualMove.toUpperCase()} (${diff>=0?'+':''}${diff.toFixed(2)})`;
+    userResultEl.textContent = `YOU chose ${userChoice ?? 'NOTHING'}`;
     aiResultEl.textContent = `AI chose ${aiChoice.toUpperCase()}`;
 
-    if (userChoice === actualMove) userScore++;
-    if (aiChoice === actualMove) aiScore++;
-
     if (userChoice === actualMove && aiChoice !== actualMove) {
+      userScore++;
       winnerEl.textContent = '🏆 YOU WIN THIS ROUND!';
+      launchConfetti();
+      flashBackground('bg-emerald-900');
     } else if (aiChoice === actualMove && userChoice !== actualMove) {
+      aiScore++;
       winnerEl.textContent = '🤖 AI WINS THIS ROUND';
+      loseAnimation();
+      flashBackground('bg-rose-900');
     } else {
       winnerEl.textContent = '😐 TIE';
+      flashBackground('bg-yellow-900');
     }
 
     roundCount++;
-    const historyItem = document.createElement('li');
-    historyItem.textContent = `Round ${roundCount} — ${winnerEl.textContent}`;
-    historyEl.prepend(historyItem);
+    historyEl.prepend(Object.assign(document.createElement('li'), {
+      textContent: `Round ${roundCount} — ${winnerEl.textContent}`
+    }));
 
     userScoreEl.textContent = userScore;
     aiScoreEl.textContent = aiScore;
     resultBox.classList.remove('hidden');
 
     userChoice = null;
-    upBtn.disabled = false;
-    downBtn.disabled = false;
+    upBtn.disabled = downBtn.disabled = false;
     upBtn.classList.remove('opacity-50');
     downBtn.classList.remove('opacity-50');
     lockedText.classList.add('hidden');
