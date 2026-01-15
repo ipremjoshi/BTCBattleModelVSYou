@@ -79,10 +79,12 @@
   const userScoreEl = document.getElementById('userScore');
   const aiScoreEl = document.getElementById('aiScore');
   const historyEl = document.getElementById('history');
+  const errorMsgEl = document.getElementById('errorMsg');
 
   let lastClose = null;
+  let lastCloseReady = false;
   let livePrice = null;
-  let userChoice = null; // 'up' or 'down'
+  let userChoice = null;
   let aiChoice = null;
   let timer = 30;
   let userScore = 0;
@@ -96,31 +98,45 @@
     livePrice = parseFloat(data.p);
   };
 
-  // Kline for last minute close
+  // Kline stream for future minute closes
   const klineWS = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
-
   klineWS.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.k && msg.k.x) {
-        lastClose = parseFloat(msg.k.c);
-        if (!isNaN(lastClose)) {
+        const close = parseFloat(msg.k.c);
+        if (!isNaN(close)) {
+          lastClose = close;
+          lastCloseReady = true;
           lastCloseEl.textContent = `$${lastClose.toFixed(2)}`;
-          document.getElementById('errorMsg').classList.add('hidden');
+          errorMsgEl.classList.add('hidden');
         }
       }
-    } catch (err) {
+    } catch {
       showApiError();
     }
   };
 
-  klineWS.onerror = () => {
-    showApiError();
-  };
+  klineWS.onerror = () => showApiError();
+
+  // Initial REST fetch so first load has data
+  fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1')
+    .then(res => res.json())
+    .then(data => {
+      if (Array.isArray(data) && data.length > 0) {
+        const close = parseFloat(data[0][4]);
+        if (!isNaN(close)) {
+          lastClose = close;
+          lastCloseReady = true;
+          lastCloseEl.textContent = `$${lastClose.toFixed(2)}`;
+        }
+      }
+    })
+    .catch(() => showApiError());
 
   function showApiError() {
     lastCloseEl.textContent = '— — — —';
-    document.getElementById('errorMsg').classList.remove('hidden');
+    errorMsgEl.classList.remove('hidden');
   }
 
   upBtn.onclick = () => lockChoice('up');
@@ -140,15 +156,14 @@
   }
 
   function evaluateRound() {
-    if (lastClose == null || livePrice == null) return;
+    if (!lastCloseReady || livePrice == null) return;
 
     aiChoice = aiPredictDirection();
     const actualMove = livePrice >= lastClose ? 'up' : 'down';
-
-    const diff = (livePrice - lastClose);
+    const diff = livePrice - lastClose;
     const arrow = actualMove === 'up' ? '⬆' : '⬇';
-    priceMoveEl.textContent = `🟢 Price went ${actualMove.toUpperCase()} ${arrow} (${diff >= 0 ? '+' : ''}${diff.toFixed(2)})`;
 
+    priceMoveEl.textContent = `🟢 Price went ${actualMove.toUpperCase()} ${arrow} (${diff >= 0 ? '+' : ''}${diff.toFixed(2)})`;
     userResultEl.textContent = `YOU chose ${userChoice ? userChoice.toUpperCase() : 'NOTHING'}`;
     aiResultEl.textContent = `AI chose ${aiChoice.toUpperCase()}`;
 
@@ -164,7 +179,6 @@
     }
 
     roundCount++;
-
     const historyItem = document.createElement('li');
     historyItem.textContent = `Round ${roundCount} — ${winnerEl.textContent}`;
     historyEl.prepend(historyItem);
@@ -173,7 +187,6 @@
     aiScoreEl.textContent = aiScore;
     resultBox.classList.remove('hidden');
 
-    // Reset for next round
     userChoice = null;
     upBtn.disabled = false;
     downBtn.disabled = false;
