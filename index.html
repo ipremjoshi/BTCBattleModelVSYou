@@ -2,465 +2,137 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <title>BTC Battle — You vs AI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BTC: You vs Model — Next‑Minute Prediction Game</title>
-  <!-- Tailwind via CDN for quick styling -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="description" content="Real-time Bitcoin next-minute prediction game: user vs simple ML model. Live price from Binance WS, minute closes via klines." />
   <style>
-    /* Subtle glow for winners */
-    .winner { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
-    .loser  { opacity: 0.8; }
-    .dot { width: 10px; height: 10px; border-radius: 9999px; display: inline-block; }
-    .blink { animation: blink 1s step-start 0s infinite; }
-    @keyframes blink { 50% { opacity: 0.2; } }
+    .pulse { animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { transform: scale(1.05); } }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-  <div class="max-w-6xl mx-auto p-4 sm:p-6">
-    <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">BTC: You vs Model — Next‑Minute Prediction</h1>
-        <p class="text-slate-400 text-sm mt-1">Live price from Binance (BTC/USDT). Each round compares predictions to the next 1‑minute candle close.</p>
-      </div>
-      <div class="flex items-center gap-3 text-sm">
-        <div class="flex items-center gap-2"><span class="dot bg-emerald-500" id="tradeDot"></span> Trades</div>
-        <div class="flex items-center gap-2"><span class="dot bg-indigo-500" id="klineDot"></span> Kl1m</div>
-      </div>
-    </header>
+<body class="bg-slate-950 text-white min-h-screen flex items-center justify-center">
 
-    <!-- Live Price + Round Panel -->
-    <section class="grid md:grid-cols-2 gap-4 mb-6">
-      <div class="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-5 shadow">
-        <div class="text-slate-400 text-xs">Live Price</div>
-        <div class="mt-1 flex items-baseline gap-2">
-          <div id="livePrice" class="text-3xl sm:text-4xl font-semibold tabular-nums">$—</div>
-          <div id="liveDelta" class="text-sm text-slate-400">(…)</div>
-        </div>
-        <div class="mt-2 text-xs text-slate-400">Source: <span class="font-mono">wss://stream.binance.com:9443</span> (BTCUSDT @trade)</div>
-      </div>
+  <div class="max-w-md w-full p-6 text-center space-y-6">
 
-      <div class="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-5 shadow">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-slate-400 text-xs">Current Round</div>
-            <div class="text-lg font-semibold" id="roundLabel">Preparing…</div>
-          </div>
-          <div class="text-right">
-            <div class="text-slate-400 text-xs">Time left</div>
-            <div class="text-2xl font-semibold tabular-nums" id="countdown">--s</div>
-          </div>
-        </div>
-        <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="p-3 rounded-xl bg-slate-800/60">
-            <div class="text-slate-400 text-xs">Model prediction (next close)</div>
-            <div id="modelPred" class="text-xl font-semibold tabular-nums">$—</div>
-          </div>
-          <div class="p-3 rounded-xl bg-slate-800/60">
-            <div class="text-slate-400 text-xs">Your prediction</div>
-            <div class="flex items-center gap-2 mt-1">
-              <span class="text-slate-400 text-sm">$</span>
-              <input id="userPredInput" type="number" step="0.01" placeholder="Enter price" class="w-full bg-slate-900/80 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            </div>
-            <div id="userPredHint" class="text-xs text-slate-400 mt-1">You can edit until the round ends.</div>
-          </div>
-          <div class="p-3 rounded-xl bg-slate-800/60">
-            <div class="text-slate-400 text-xs">Wins</div>
-            <div class="mt-1 text-sm">
-              <div>Model: <span id="winsModel" class="font-semibold">0</span></div>
-              <div>You: <span id="winsUser" class="font-semibold">0</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- Title -->
+    <h1 class="text-3xl font-bold">🟠 BTC Battle</h1>
+    <p class="text-slate-400">Guess the next price. Beat the AI 🤖</p>
 
-    <!-- Results Table -->
-    <section class="bg-slate-900/60 rounded-2xl shadow">
-      <div class="p-4 sm:p-5 border-b border-slate-800/80 flex items-center justify-between">
-        <div>
-          <h2 class="font-semibold">Rounds</h2>
-          <p class="text-xs text-slate-400">Evaluated at each 1‑minute candle close (kline). Actual = candle close price.</p>
-        </div>
-        <div class="flex gap-2 text-xs">
-          <button id="clearBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Clear</button>
-          <button id="exportBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700">Export CSV</button>
-        </div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm tabular-nums" id="resultsTable">
-          <thead class="bg-slate-800/60 text-slate-300">
-            <tr>
-              <th class="text-left px-4 py-2">#</th>
-              <th class="text-left px-4 py-2">Minute</th>
-              <th class="text-right px-4 py-2">Actual Close</th>
-              <th class="text-right px-4 py-2">Model Pred</th>
-              <th class="text-right px-4 py-2">Your Pred</th>
-              <th class="text-right px-4 py-2">Model Error</th>
-              <th class="text-right px-4 py-2">Your Error</th>
-              <th class="text-left px-4 py-2">Winner</th>
-            </tr>
-          </thead>
-          <tbody id="resultsBody"></tbody>
-        </table>
-      </div>
-    </section>
+    <!-- Live Price -->
+    <div class="bg-slate-900 rounded-2xl p-4">
+      <p class="text-slate-400 text-sm">Bitcoin price right now</p>
+      <p id="livePrice" class="text-4xl font-bold">$—</p>
+    </div>
 
-    <footer class="text-xs text-slate-500 mt-6">
-      <p>Educational game. Prices via Binance public streams; not investment advice.</p>
-    </footer>
+    <!-- Timer -->
+    <div>
+      <p class="text-slate-400">Next result in</p>
+      <p id="timer" class="text-3xl font-bold pulse">30s</p>
+    </div>
+
+    <!-- User Input -->
+    <div class="bg-slate-900 rounded-2xl p-4 space-y-3">
+      <p class="text-slate-400">🎯 Your guess for the next 30 seconds</p>
+      <input id="userGuess" type="number" placeholder="Enter BTC price" class="w-full text-center text-xl bg-slate-800 rounded-xl py-3 outline-none focus:ring-2 focus:ring-emerald-500" />
+      <p id="lockedText" class="text-sm text-emerald-400 hidden">Locked in! Let’s see 👀</p>
+    </div>
+
+    <!-- Result -->
+    <div id="resultBox" class="bg-slate-900 rounded-2xl p-4 hidden space-y-2">
+      <p id="realPrice"></p>
+      <p id="userResult"></p>
+      <p id="aiResult"></p>
+      <p id="winner" class="text-xl font-bold"></p>
+    </div>
+
+    <!-- Score -->
+    <div class="flex justify-around text-lg">
+      <p>🔥 You: <span id="userScore">0</span></p>
+      <p>🤖 AI: <span id="aiScore">0</span></p>
+    </div>
+
+    <p class="text-xs text-slate-500">Just a fun game. Not financial advice.</p>
+
   </div>
 
-  <script>
-    // -----------------------------
-    // Utilities
-    // -----------------------------
-    const $ = (id) => document.getElementById(id);
-    const fmt = (n) => n == null ? '—' : (n >= 1000 ? n.toLocaleString(undefined, {maximumFractionDigits: 2}) : n.toFixed(2));
-    const now = () => Date.now();
+<script>
+  const livePriceEl = document.getElementById('livePrice');
+  const timerEl = document.getElementById('timer');
+  const userGuessInput = document.getElementById('userGuess');
+  const lockedText = document.getElementById('lockedText');
+  const resultBox = document.getElementById('resultBox');
+  const realPriceEl = document.getElementById('realPrice');
+  const userResultEl = document.getElementById('userResult');
+  const aiResultEl = document.getElementById('aiResult');
+  const winnerEl = document.getElementById('winner');
+  const userScoreEl = document.getElementById('userScore');
+  const aiScoreEl = document.getElementById('aiScore');
 
-    function csvEscape(val) {
-      const s = String(val ?? '');
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
+  let livePrice = null;
+  let userGuess = null;
+  let aiGuess = null;
+  let timer = 30;
+  let userScore = 0;
+  let aiScore = 0;
+
+  // Live BTC price (Binance)
+  const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    livePrice = parseFloat(data.p);
+    livePriceEl.textContent = `$${livePrice.toFixed(2)}`;
+  };
+
+  userGuessInput.addEventListener('input', () => {
+    userGuess = parseFloat(userGuessInput.value);
+    if (!isNaN(userGuess)) lockedText.classList.remove('hidden');
+  });
+
+  function aiPredict() {
+    const randomMove = (Math.random() - 0.5) * 40;
+    return livePrice + randomMove;
+  }
+
+  function evaluateRound() {
+    const realPrice = livePrice;
+    aiGuess = aiPredict();
+
+    const userDiff = Math.abs(realPrice - userGuess);
+    const aiDiff = Math.abs(realPrice - aiGuess);
+
+    realPriceEl.textContent = `🟢 Real price: $${realPrice.toFixed(2)}`;
+    userResultEl.textContent = `YOU guessed $${userGuess?.toFixed(2)} (off by $${userDiff.toFixed(2)})`;
+    aiResultEl.textContent = `AI guessed $${aiGuess.toFixed(2)} (off by $${aiDiff.toFixed(2)})`;
+
+    if (userGuess == null) {
+      winnerEl.textContent = '🤖 AI wins (no guess)';
+      aiScore++;
+    } else if (userDiff < aiDiff) {
+      winnerEl.textContent = '🏆 YOU WIN THIS ROUND!';
+      userScore++;
+    } else {
+      winnerEl.textContent = '🤖 AI WINS THIS ROUND';
+      aiScore++;
     }
 
-    // -----------------------------
-    // State
-    // -----------------------------
-    let currentPrice = null; // from trades stream
-    let lastPrice = null;
-    let priceDelta = null; // change vs last
-    let priceBuffer = [];   // [{t, p}] sampled ~1/s for regression
+    userScoreEl.textContent = userScore;
+    aiScoreEl.textContent = aiScore;
+    resultBox.classList.remove('hidden');
 
-    let roundId = 0;
-    let currentRound = null; // {id, startMs, modelPred, userPred}
-    let lastClosedRound = null; // last evaluated round data
+    userGuess = null;
+    userGuessInput.value = '';
+    lockedText.classList.add('hidden');
+  }
 
-    let wins = { model: 0, user: 0 };
-    let tradeWS = null, klineWS = null;
-
-    // Persistence
-    const LS_KEY_RESULTS = 'btc_game_results_v1';
-    const LS_KEY_WINS = 'btc_game_wins_v1';
-
-    // -----------------------------
-    // WebSocket connections
-    // -----------------------------
-    function connectTradeStream() {
-      const url = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
-      tradeWS = new WebSocket(url);
-      tradeWS.onopen = () => { $('tradeDot').classList.remove('bg-red-500'); $('tradeDot').classList.add('bg-emerald-500'); };
-      tradeWS.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          const p = parseFloat(data.p);
-          if (!isNaN(p)) {
-            lastPrice = currentPrice;
-            currentPrice = p;
-            priceDelta = (lastPrice != null) ? (currentPrice - lastPrice) : 0;
-            updateLivePrice();
-          }
-        } catch (e) {}
-      };
-      tradeWS.onclose = () => {
-        $('tradeDot').classList.remove('bg-emerald-500');
-        $('tradeDot').classList.add('bg-red-500', 'blink');
-        // Try to reconnect after a short delay
-        setTimeout(connectTradeStream, 2000);
-      };
-      tradeWS.onerror = () => { try { tradeWS.close(); } catch (_) {} };
+  setInterval(() => {
+    timer--;
+    timerEl.textContent = `${timer}s`;
+    if (timer === 0) {
+      evaluateRound();
+      timer = 30;
     }
+  }, 1000);
+</script>
 
-    function connectKlineStream() {
-      const url = 'wss://stream.binance.com:9443/ws/btcusdt@kline_1m';
-      klineWS = new WebSocket(url);
-      klineWS.onopen = () => { $('klineDot').classList.remove('bg-red-500'); $('klineDot').classList.add('bg-indigo-500'); };
-      klineWS.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data);
-          const k = msg.k; // kline payload
-          if (!k) return;
-          // When a minute closes (k.x === true), we evaluate the previous round.
-          if (k.x === true) {
-            const closePrice = parseFloat(k.c);
-            const closeTimeMs = k.T; // close time of this kline (ms)
-            onMinuteClosed(closeTimeMs, closePrice);
-          }
-        } catch (e) {}
-      };
-      klineWS.onclose = () => {
-        $('klineDot').classList.remove('bg-indigo-500');
-        $('klineDot').classList.add('bg-red-500', 'blink');
-        setTimeout(connectKlineStream, 2000);
-      };
-      klineWS.onerror = () => { try { klineWS.close(); } catch (_) {} };
-    }
-
-    // -----------------------------
-    // Sampling for simple regression model
-    // -----------------------------
-    function startSampler() {
-      setInterval(() => {
-        if (currentPrice == null) return;
-        const t = now() / 1000; // seconds
-        priceBuffer.push({ t, p: currentPrice });
-        // Keep last ~180s to cap memory
-        if (priceBuffer.length > 200) priceBuffer.splice(0, priceBuffer.length - 200);
-      }, 1000);
-    }
-
-    function predictNextMinute() {
-      // Use last 60s data for a simple linear regression forecast 60s ahead.
-      const tNow = now() / 1000;
-      const windowSec = 60;
-      const pts = priceBuffer.filter(pt => pt.t >= tNow - windowSec);
-      if (pts.length < 10) {
-        return currentPrice ?? lastPrice ?? null;
-      }
-      // Normalize times to reduce numeric error
-      const t0 = pts[0].t;
-      let sumT = 0, sumP = 0, sumTT = 0, sumTP = 0;
-      for (const pt of pts) {
-        const dt = pt.t - t0;
-        sumT += dt; sumP += pt.p; sumTT += dt*dt; sumTP += dt*pt.p;
-      }
-      const n = pts.length;
-      const meanT = sumT / n, meanP = sumP / n;
-      const covTP = sumTP - n * meanT * meanP;
-      const varT  = sumTT - n * meanT * meanT;
-      let pred = null;
-      if (varT > 0) {
-        const slope = covTP / varT; // $/sec
-        const intercept = meanP - slope * meanT;
-        const dtAhead = (pts[pts.length - 1].t - t0) + 60; // 60s ahead from last sample
-        pred = intercept + slope * dtAhead;
-      }
-      if (pred == null || isNaN(pred)) pred = currentPrice ?? lastPrice ?? null;
-      // Gentle blend with last price to avoid wild swings
-      if (pred != null && currentPrice != null) pred = 0.6 * pred + 0.4 * currentPrice;
-      return pred;
-    }
-
-    // -----------------------------
-    // Round lifecycle
-    // -----------------------------
-    function startNewRound(startMs) {
-      roundId += 1;
-      currentRound = {
-        id: roundId,
-        startMs,
-        modelPred: predictNextMinute(),
-        userPred: null,
-      };
-      updateRoundPanel();
-    }
-
-    function onMinuteClosed(closeTimeMs, actualClosePrice) {
-      // 1) If a round was active, evaluate it using this actual close
-      if (currentRound && currentRound.id > 0) {
-        const modelErr = err(actualClosePrice, currentRound.modelPred);
-        const userErr  = err(actualClosePrice, currentRound.userPred);
-        let winner;
-        if (currentRound.userPred == null && currentRound.modelPred == null) {
-          winner = '—';
-        } else if (currentRound.userPred == null) {
-          winner = 'Model'; wins.model++;
-        } else if (currentRound.modelPred == null) {
-          winner = 'You'; wins.user++;
-        } else if (modelErr < userErr) { winner = 'Model'; wins.model++; }
-        else if (userErr < modelErr) { winner = 'You'; wins.user++; }
-        else { winner = 'Tie'; }
-
-        // Save row
-        const row = {
-          id: currentRound.id,
-          minute: new Date(closeTimeMs).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: undefined}),
-          actual: actualClosePrice,
-          modelPred: currentRound.modelPred,
-          userPred: currentRound.userPred,
-          modelErr, userErr,
-          winner,
-        };
-        addResultRow(row);
-        persist();
-        updateWins();
-      }
-
-      // 2) Immediately start the next round (predictions apply to the NEXT close)
-      startNewRound(closeTimeMs);
-    }
-
-    function err(a, b) {
-      if (a == null || b == null) return Number.POSITIVE_INFINITY;
-      return Math.abs(a - b);
-    }
-
-    // -----------------------------
-    // UI updates
-    // -----------------------------
-    function updateLivePrice() {
-      $('livePrice').textContent = '$' + fmt(currentPrice);
-      const d = priceDelta ?? 0;
-      const s = (d >= 0 ? '+' : '') + (Math.abs(d) < 1 ? d.toFixed(2) : d.toFixed(2));
-      $('liveDelta').textContent = `(${s})`;
-      $('liveDelta').className = 'text-sm ' + (d >= 0 ? 'text-emerald-400' : 'text-rose-400');
-    }
-
-    function updateRoundPanel() {
-      if (!currentRound) return;
-      const label = `Round #${currentRound.id} — predicting next close`;
-      $('roundLabel').textContent = label;
-      $('modelPred').textContent = '$' + fmt(currentRound.modelPred);
-      $('winsModel').textContent = wins.model;
-      $('winsUser').textContent = wins.user;
-    }
-
-    function addResultRow(row) {
-      const tr = document.createElement('tr');
-      tr.className = 'border-t border-slate-800/80 hover:bg-slate-900/40';
-
-      const td = (txt, cls='text-left px-4 py-2') => { const c = document.createElement('td'); c.className = cls; c.textContent = txt; return c; };
-
-      tr.appendChild(td(row.id));
-      tr.appendChild(td(row.minute));
-      tr.appendChild(td('$' + fmt(row.actual), 'text-right px-4 py-2'));
-      tr.appendChild(td('$' + fmt(row.modelPred), 'text-right px-4 py-2'));
-      tr.appendChild(td(row.userPred == null ? '—' : ('$' + fmt(row.userPred)), 'text-right px-4 py-2'));
-      tr.appendChild(td(row.modelErr === Infinity ? '—' : fmt(row.modelErr), 'text-right px-4 py-2'));
-      tr.appendChild(td(row.userErr === Infinity ? '—' : fmt(row.userErr), 'text-right px-4 py-2'));
-
-      const winnerCell = document.createElement('td');
-      winnerCell.className = 'text-left px-4 py-2';
-      winnerCell.textContent = row.winner;
-      if (row.winner === 'Model') winnerCell.classList.add('text-emerald-400');
-      else if (row.winner === 'You') winnerCell.classList.add('text-indigo-400');
-      else winnerCell.classList.add('text-slate-400');
-      tr.appendChild(winnerCell);
-
-      if (row.winner === 'Model') tr.classList.add('winner');
-
-      $('resultsBody').prepend(tr); // newest on top
-    }
-
-    function persist() {
-      // Save table rows & wins to localStorage (simple persistence)
-      const rows = [...document.querySelectorAll('#resultsBody tr')].slice(0, 200); // cap 200
-      const data = rows.map(tr => {
-        const cells = tr.querySelectorAll('td');
-        return {
-          id: cells[0].textContent,
-          minute: cells[1].textContent,
-          actual: cells[2].textContent,
-          modelPred: cells[3].textContent,
-          userPred: cells[4].textContent,
-          modelErr: cells[5].textContent,
-          userErr: cells[6].textContent,
-          winner: cells[7].textContent,
-        };
-      });
-      localStorage.setItem(LS_KEY_RESULTS, JSON.stringify(data));
-      localStorage.setItem(LS_KEY_WINS, JSON.stringify(wins));
-    }
-
-    function restore() {
-      const rowsJson = localStorage.getItem(LS_KEY_RESULTS);
-      const winsJson = localStorage.getItem(LS_KEY_WINS);
-      if (winsJson) { try { wins = JSON.parse(winsJson) || wins; } catch (_) {} }
-      updateWins();
-      if (rowsJson) {
-        try {
-          const arr = JSON.parse(rowsJson);
-          for (let i = arr.length - 1; i >= 0; i--) {
-            const r = arr[i];
-            const row = {
-              id: r.id,
-              minute: r.minute,
-              actual: parseFloat((r.actual||'').replace(/[^0-9.\-]/g,'')) || null,
-              modelPred: parseFloat((r.modelPred||'').replace(/[^0-9.\-]/g,'')) || null,
-              userPred: parseFloat((r.userPred||'').replace(/[^0-9.\-]/g,'')) || null,
-              modelErr: r.modelErr === '—' ? Infinity : parseFloat(r.modelErr),
-              userErr: r.userErr === '—' ? Infinity : parseFloat(r.userErr),
-              winner: r.winner,
-            };
-            addResultRow(row);
-            roundId = Math.max(roundId, parseInt(row.id, 10) || 0);
-          }
-        } catch (_) {}
-      }
-    }
-
-    function updateWins() {
-      $('winsModel').textContent = wins.model;
-      $('winsUser').textContent = wins.user;
-    }
-
-    // Countdown to next minute boundary (approx)
-    function startCountdown() {
-      setInterval(() => {
-        const msLeft = 60000 - (Date.now() % 60000);
-        const s = Math.floor(msLeft / 1000);
-        $('countdown').textContent = s + 's';
-      }, 200);
-    }
-
-    // -----------------------------
-    // User input handlers
-    // -----------------------------
-    $('userPredInput').addEventListener('input', (e) => {
-      const v = parseFloat(e.target.value);
-      if (!currentRound) return;
-      currentRound.userPred = (!isNaN(v) && v > 0) ? v : null;
-      // Optional: visual cue when set
-      $('userPredHint').textContent = currentRound.userPred == null ? 'You can edit until the round ends.' : 'Saved for this round. You can still edit until the timer hits 0.';
-    });
-
-    // Clear & Export
-    $('clearBtn').addEventListener('click', () => {
-      if (!confirm('Clear history & scores?')) return;
-      localStorage.removeItem(LS_KEY_RESULTS);
-      localStorage.removeItem(LS_KEY_WINS);
-      $('resultsBody').innerHTML = '';
-      wins = { model: 0, user: 0 };
-      updateWins();
-    });
-
-    $('exportBtn').addEventListener('click', () => {
-      const rows = [...document.querySelectorAll('#resultsBody tr')];
-      const header = ['Round','Minute','Actual','ModelPred','UserPred','ModelError','UserError','Winner'];
-      const lines = [header.join(',')];
-      rows.reverse().forEach(tr => {
-        const cells = tr.querySelectorAll('td');
-        const arr = Array.from(cells).map(td => td.textContent.trim());
-        lines.push(arr.map(csvEscape).join(','));
-      });
-      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'btc_prediction_rounds.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    });
-
-    // -----------------------------
-    // Boot
-    // -----------------------------
-    restore();
-    connectTradeStream();
-    connectKlineStream();
-    startSampler();
-    startCountdown();
-
-    // Start the very first round once we have a price (fallback after few seconds)
-    let started = false;
-    const bootCheck = setInterval(() => {
-      if (currentPrice != null && !started) {
-        started = true; startNewRound(now()); clearInterval(bootCheck);
-      }
-    }, 500);
-    setTimeout(() => { if (!started) { started = true; startNewRound(now()); clearInterval(bootCheck); } }, 5000);
-  </script>
 </body>
 </html>
